@@ -9,6 +9,8 @@ const agreeError = document.querySelector("#agree-error");
 const message = document.querySelector("#form-message");
 const signupMessage = document.querySelector("#signup-message");
 const loginMessage = document.querySelector("#login-message");
+const authPanel = document.querySelector(".auth-panel");
+const paymentSection = document.querySelector("#payment-section");
 const invoiceModal = document.querySelector("#invoice-modal");
 const invoiceList = document.querySelector("#invoice-list");
 const closeInvoice = document.querySelector("#close-invoice");
@@ -114,7 +116,15 @@ document.querySelectorAll(".choose").forEach((btn) => {
     const plan = card.dataset.plan;
     planSelect.value = plan;
     updateSummary(plan);
-    document.querySelector(".form-card").scrollIntoView({ behavior: "smooth" });
+
+    const rawAccount = localStorage.getItem("premiumAccount");
+    if (!rawAccount) {
+      if (message) message.textContent = "Silakan login atau sign up dulu sebelum lanjut pembayaran.";
+      if (authPanel) authPanel.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+
+    if (paymentSection) paymentSection.scrollIntoView({ behavior: "smooth" });
   });
 });
 
@@ -222,6 +232,7 @@ if (paymentForm) {
 
     if (!account) {
       if (message) message.textContent = "Isi data Sign Up atau Login dulu.";
+      if (authPanel) authPanel.scrollIntoView({ behavior: "smooth" });
       valid = false;
     }
 
