@@ -1,12 +1,23 @@
 const planSelect = document.querySelector("#plan");
 const paymentSelect = document.querySelector("#payment");
 const summaryText = document.querySelector("#summary-text");
-const form = document.querySelector("#premium-form");
+const signupForm = document.querySelector("#signup-form");
+const loginForm = document.querySelector("#login-form");
+const paymentForm = document.querySelector("#payment-form");
 const agree = document.querySelector("#agree");
 const agreeError = document.querySelector("#agree-error");
 const message = document.querySelector("#form-message");
-const modeButtons = document.querySelectorAll(".mode-btn");
-const fieldGroups = document.querySelectorAll(".field-group");
+const signupMessage = document.querySelector("#signup-message");
+const loginMessage = document.querySelector("#login-message");
+const invoiceModal = document.querySelector("#invoice-modal");
+const invoiceList = document.querySelector("#invoice-list");
+const closeInvoice = document.querySelector("#close-invoice");
+const closeInvoice2 = document.querySelector("#close-invoice-2");
+const goCheckout = document.querySelector("#go-checkout");
+const sendWhatsapp = document.querySelector("#send-whatsapp");
+const accountText = document.querySelector("#account-text");
+
+const ADMIN_WA = "6282246656931";
 
 const currency = new Intl.NumberFormat("id-ID", {
   style: "currency",
@@ -30,6 +41,55 @@ const updateSummary = (planName) => {
   summaryText.textContent = `${planName} - ${currency.format(plans[planName])} / bulan`;
 };
 
+const updateAccountSummary = (data) => {
+  if (!accountText) return;
+  if (!data) {
+    accountText.textContent = "Belum ada data akun.";
+    return;
+  }
+  accountText.textContent = `${data.nama || "Pengguna"} • ${data.email || "-"} • ${data.telepon || "-"}`;
+};
+
+const openInvoice = (data) => {
+  if (!invoiceModal || !invoiceList) return;
+  invoiceList.innerHTML = "";
+  const rows = [
+    ["Nama", data.nama],
+    ["Email", data.email],
+    ["No. Telepon", data.telepon],
+    ["Layanan", data.plan],
+    ["Harga", `${currency.format(data.price)} / bulan`],
+    ["Metode Bayar", data.payment],
+    ["Mode", data.mode === "login" ? "Login" : "Sign Up"],
+  ];
+  rows.forEach(([label, value]) => {
+    const item = document.createElement("div");
+    item.className = "invoice-item";
+    item.innerHTML = `<span>${label}</span><span>${value}</span>`;
+    invoiceList.appendChild(item);
+  });
+  invoiceModal.classList.add("open");
+  invoiceModal.setAttribute("aria-hidden", "false");
+};
+
+const closeInvoiceModal = () => {
+  if (!invoiceModal) return;
+  invoiceModal.classList.remove("open");
+  invoiceModal.setAttribute("aria-hidden", "true");
+};
+
+const buildWhatsappText = (data) => {
+  return [
+    "Halo, saya ingin berlangganan:",
+    `Nama: ${data.nama}`,
+    `Email: ${data.email}`,
+    `Telepon: ${data.telepon}`,
+    `Layanan: ${data.plan}`,
+    `Harga: ${currency.format(data.price)} / bulan`,
+    `Metode bayar: ${data.payment}`,
+  ].join("\n");
+};
+
 const setError = (field, text) => {
   const group = document.querySelector(`[data-field="${field}"]`);
   if (!group) return;
@@ -41,23 +101,10 @@ const clearErrors = () => {
   document.querySelectorAll(".error").forEach((node) => {
     node.textContent = "";
   });
-  agreeError.textContent = "";
-  message.textContent = "";
-};
-
-const toggleMode = (mode) => {
-  modeButtons.forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.mode === mode);
-  });
-
-  fieldGroups.forEach((group) => {
-    const only = group.dataset.only;
-    if (only === "signup") {
-      group.style.display = mode === "signup" ? "grid" : "none";
-      const input = group.querySelector("input");
-      if (input) input.required = mode === "signup";
-    }
-  });
+  if (agreeError) agreeError.textContent = "";
+  if (message) message.textContent = "";
+  if (signupMessage) signupMessage.textContent = "";
+  if (loginMessage) loginMessage.textContent = "";
 };
 
 document.querySelectorAll(".choose").forEach((btn) => {
@@ -75,71 +122,174 @@ planSelect.addEventListener("change", (event) => {
   updateSummary(event.target.value);
 });
 
-modeButtons.forEach((btn) => {
-  btn.addEventListener("click", () => toggleMode(btn.dataset.mode));
-});
+if (signupForm) {
+  signupForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    clearErrors();
 
-form.addEventListener("submit", (event) => {
-  event.preventDefault();
-  clearErrors();
+    let valid = true;
+    const nama = document.querySelector("#su-nama");
+    const email = document.querySelector("#su-email");
+    const telepon = document.querySelector("#su-telepon");
+    const password = document.querySelector("#su-password");
+    const confirm = document.querySelector("#su-confirm");
 
-  let valid = true;
-  const nama = document.querySelector("#nama");
-  const email = document.querySelector("#email");
-  const telepon = document.querySelector("#telepon");
-  const password = document.querySelector("#password");
-  const confirm = document.querySelector("#confirm");
+    if (nama.value.trim().length < 3) {
+      setError("su-nama", "Nama minimal 3 karakter.");
+      valid = false;
+    }
 
-  if (nama && nama.required && nama.value.trim().length < 3) {
-    setError("nama", "Nama minimal 3 karakter.");
-    valid = false;
-  }
+    if (!email.value.includes("@")) {
+      setError("su-email", "Email tidak valid.");
+      valid = false;
+    }
 
-  if (!email.value.includes("@")) {
-    setError("email", "Email tidak valid.");
-    valid = false;
-  }
+    if (telepon.value.trim().length < 9) {
+      setError("su-telepon", "No. telepon minimal 9 digit.");
+      valid = false;
+    }
 
-  if (telepon && telepon.required && telepon.value.trim().length < 9) {
-    setError("telepon", "No. telepon minimal 9 digit.");
-    valid = false;
-  }
+    if (password.value.trim().length < 6) {
+      setError("su-password", "Password minimal 6 karakter.");
+      valid = false;
+    }
 
-  if (password.value.trim().length < 6) {
-    setError("password", "Password minimal 6 karakter.");
-    valid = false;
-  }
+    if (confirm.value !== password.value) {
+      setError("su-confirm", "Konfirmasi password tidak cocok.");
+      valid = false;
+    }
 
-  if (confirm && confirm.required && confirm.value !== password.value) {
-    setError("confirm", "Konfirmasi password tidak cocok.");
-    valid = false;
-  }
+    if (!valid) {
+      if (signupMessage) signupMessage.textContent = "Periksa kembali data sign up.";
+      return;
+    }
 
-  if (!paymentSelect.value) {
-    setError("payment", "Pilih metode pembayaran.");
-    valid = false;
-  }
+    const account = {
+      nama: nama.value.trim(),
+      email: email.value.trim(),
+      telepon: telepon.value.trim(),
+      mode: "signup",
+    };
+    localStorage.setItem("premiumAccount", JSON.stringify(account));
+    updateAccountSummary(account);
+    if (signupMessage) signupMessage.textContent = "Data akun tersimpan.";
+  });
+}
 
-  if (!planSelect.value) {
-    setError("plan", "Pilih layanan terlebih dahulu.");
-    valid = false;
-  }
+if (loginForm) {
+  loginForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    clearErrors();
+    const email = document.querySelector("#login-email");
+    const password = document.querySelector("#login-password");
+    let valid = true;
 
-  if (!agree.checked) {
-    agreeError.textContent = "Kamu harus menyetujui syarat & ketentuan.";
-    valid = false;
-  }
+    if (!email.value.includes("@")) {
+      setError("login-email", "Email tidak valid.");
+      valid = false;
+    }
 
-  if (!valid) {
-    message.textContent = "Periksa kembali data yang wajib diisi.";
-    return;
-  }
+    if (password.value.trim().length < 6) {
+      setError("login-password", "Password minimal 6 karakter.");
+      valid = false;
+    }
 
-  message.textContent = "Berhasil! Data kamu sudah tercatat untuk proses langganan.";
-  form.reset();
-  updateSummary("");
-  toggleMode("signup");
-});
+    if (!valid) {
+      if (loginMessage) loginMessage.textContent = "Periksa kembali data login.";
+      return;
+    }
+
+    const account = {
+      nama: "Pengguna",
+      email: email.value.trim(),
+      telepon: "-",
+      mode: "login",
+    };
+    localStorage.setItem("premiumAccount", JSON.stringify(account));
+    updateAccountSummary(account);
+    if (loginMessage) loginMessage.textContent = "Login tersimpan.";
+  });
+}
+
+if (paymentForm) {
+  paymentForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    clearErrors();
+
+    let valid = true;
+    const rawAccount = localStorage.getItem("premiumAccount");
+    const account = rawAccount ? JSON.parse(rawAccount) : null;
+
+    if (!account) {
+      if (message) message.textContent = "Isi data Sign Up atau Login dulu.";
+      valid = false;
+    }
+
+    if (!paymentSelect.value) {
+      setError("payment", "Pilih metode pembayaran.");
+      valid = false;
+    }
+
+    if (!planSelect.value) {
+      setError("plan", "Pilih layanan terlebih dahulu.");
+      valid = false;
+    }
+
+    if (agree && !agree.checked) {
+      agreeError.textContent = "Kamu harus menyetujui syarat & ketentuan.";
+      valid = false;
+    }
+
+    if (!valid) {
+      if (message) message.textContent = "Periksa kembali data pembayaran.";
+      return;
+    }
+
+    const order = {
+      nama: account.nama,
+      email: account.email,
+      telepon: account.telepon,
+      plan: planSelect.value,
+      price: plans[planSelect.value],
+      payment: paymentSelect.value,
+      mode: account.mode,
+    };
+
+    localStorage.setItem("premiumOrder", JSON.stringify(order));
+    updateSummary(order.plan);
+    openInvoice(order);
+    if (message) message.textContent = "Data berhasil diproses. Silakan lanjutkan ke checkout.";
+  });
+}
 
 updateSummary("");
-toggleMode("signup");
+const savedAccount = localStorage.getItem("premiumAccount");
+updateAccountSummary(savedAccount ? JSON.parse(savedAccount) : null);
+
+if (closeInvoice) closeInvoice.addEventListener("click", closeInvoiceModal);
+if (closeInvoice2) closeInvoice2.addEventListener("click", closeInvoiceModal);
+if (invoiceModal) {
+  invoiceModal.addEventListener("click", (event) => {
+    if (event.target === invoiceModal) closeInvoiceModal();
+  });
+}
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeInvoiceModal();
+});
+
+if (goCheckout) {
+  goCheckout.addEventListener("click", () => {
+    window.location.href = "checkout.html";
+  });
+}
+
+if (sendWhatsapp) {
+  sendWhatsapp.addEventListener("click", () => {
+    const raw = localStorage.getItem("premiumOrder");
+    if (!raw) return;
+    const order = JSON.parse(raw);
+    const text = encodeURIComponent(buildWhatsappText(order));
+    const url = `https://wa.me/${ADMIN_WA}?text=${text}`;
+    window.open(url, "_blank");
+  });
+}
